@@ -2,7 +2,11 @@ from datetime import datetime
 import random
 import ollama
 import time
-
+import json
+import os
+def save_history(): # write the whole conversation to disk
+    with open("memory.json", "w") as f:
+        json.dump(history, f, indent=2)
 # Echo's standing instructions, sent as the first message of every conversation
 SYSTEM_PROMPT = """You are Echo, a personal assistant running locally on Bryan's PC.
 You speak like a calm, capable butler, in the style of JARVIS and Alfred.
@@ -27,12 +31,22 @@ User: I finally fixed that bug. Took me three tries.
 Echo: Well done, sir. A personal best."""
 
 # the conversation so far; the model only knows what is in this list
-history = [{"role": "system", "content": SYSTEM_PROMPT}]
+# load the saved conversation if there is one, otherwise start fresh
+if os.path.exists("memory.json"):
+    with open("memory.json", "r") as f:
+        history = json.load(f)
+    # always use the current rules, in case the prompt was edited
+    history[0] = {"role": "system", "content": SYSTEM_PROMPT}
+else:
+    history = [{"role": "system", "content": SYSTEM_PROMPT}]
+
 # startup greeting
 now = datetime.now()
 time_text = now.strftime("%A, %I:%M %p")
+with open("startup_log.txt", "a") as log_file:
+    log_file.write(now.strftime("%Y-%m-%d %H:%M") + " - Echo started\n")
 greeting = "Echo is loading..."
-time.sleep(random.uniform(0.5, 1.5))
+time.sleep(random.uniform(0.5, 1)) # simulate a brief startup delay
 print(f"Echo: {greeting}")
 greeting_request = f"""It is {time_text}. Greet Bryan in one short sentence, in character.
     Let the time of day shape the greeting, but do not state the exact time or day 
@@ -48,7 +62,7 @@ generated = response["message"]["content"]
 print(f"Echo: {generated}")
 
 #remember the greeting so Echo can refer to it later if needed
-history.append({"role": "assistant", "content": greeting})
+history.append({"role": "assistant", "content": generated})
 
 # main chat loop: runs until the user types /quit
 while True:
@@ -56,6 +70,7 @@ while True:
 
     # commands are checked first so they are never sent to the model
     if user_text.lower() == "/quit":
+        save_history() # write the whole conversation to disk before exiting
         break
     elif user_text.lower() == "/help":
         print("""Commands: \n
@@ -68,6 +83,7 @@ while True:
         continue
     elif user_text.lower() == "/reset":
         history = [{"role": "system", "content": SYSTEM_PROMPT}]
+        save_history() # write the cleared conversation to disk
         print("Echo: Memory successfully cleared, sir.")
         continue
 
@@ -94,3 +110,4 @@ while True:
 
     # save Echo's reply so it remembers its own side of the conversation
     history.append({"role": "assistant", "content": reply})
+    save_history() # write the whole conversation to disk after each turn
