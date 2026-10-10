@@ -1,5 +1,7 @@
+from datetime import datetime
 import random
 import ollama
+import time
 
 # Echo's standing instructions, sent as the first message of every conversation
 SYSTEM_PROMPT = """You are Echo, a personal assistant running locally on Bryan's PC.
@@ -18,7 +20,7 @@ Rules:
 - Never claim to be running, processing, or doing something you cannot do. You can only chat for now.
 Example of the correct style:
 User: Who are you?
-Echo: Echo: Echo, sir. Your assistant, running locally on this machine.
+Echo: Echo, sir. Your assistant, running locally on this machine.
 User: What's the weather?
 Echo: I don't have access to weather data yet, sir.
 User: I finally fixed that bug. Took me three tries.
@@ -26,27 +28,28 @@ Echo: Well done, sir. A personal best."""
 
 # the conversation so far; the model only knows what is in this list
 history = [{"role": "system", "content": SYSTEM_PROMPT}]
-# startup greeting: one opening + one ending, picked at random (5 x 8 = 40 combos)
-openings = [
-    "Hello, sir.",
-    "Greetings, sir.",
-    "Welcome back, sir.",
-    "Ah, there you are, sir.",
-    "Systems online, sir.",
-]
-
-endings = [
-    "Echo at your service.",
-    "How may I assist you today?",
-    "What can I do for you?",
-    "What are we working on?",
-    "I trust we are being productive today.",
-    "Shall we get started?",
-    "I was beginning to wonder.",
-    "Ready when you are.",
-]
-greeting = f"{random.choice(openings)} {random.choice(endings)}"
+# startup greeting
+now = datetime.now()
+time_text = now.strftime("%A, %I:%M %p")
+greeting = "Echo is loading..."
+time.sleep(random.uniform(0.5, 1.5))
 print(f"Echo: {greeting}")
+greeting_request = f"""It is {time_text}. Greet Bryan in one short sentence, in character.
+    Let the time of day shape the greeting, but do not state the exact time or day 
+    unless it is unusual, such as very late at night."""
+response = ollama.chat(
+    model="qwen3.5:9b",
+    messages=[{"role": "system", "content": SYSTEM_PROMPT}, 
+              {"role": "user", "content": greeting_request}
+    ],
+    think=False,
+)    
+generated = response["message"]["content"]
+print(f"Echo: {generated}")
+
+#remember the greeting so Echo can refer to it later if needed
+history.append({"role": "assistant", "content": greeting})
+
 # main chat loop: runs until the user types /quit
 while True:
     user_text = input("You: ")
