@@ -83,7 +83,6 @@ while True:
         continue
     elif user_text.lower() == "/reset":
         history = [{"role": "system", "content": SYSTEM_PROMPT}]
-        save_history() # write the cleared conversation to disk
         print("Echo: Memory successfully cleared, sir.")
         continue
 
