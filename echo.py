@@ -101,24 +101,26 @@ while True:
     history.append({"role": "user", "content": user_text})
 
     # send the whole conversation; stream=True returns the reply in pieces
-
-    stream = ollama.chat(
-        model="qwen3.5:9b",
-        messages=history,
-        # skips the model's reasoning step (faster; may turn on later for hard questions)
-        think=False,
-        stream=True
-    )
-
-    # print each piece as it arrives and collect them into the full reply
-    reply = ""
-    print("Echo: ", end="", flush=True)
-    for chunk in stream:
-        piece = chunk["message"]["content"]
-        print(piece, end="", flush=True)
-        reply += piece
-    print()
-
+    try:
+        stream = ollama.chat(
+            model="qwen3.5:9b",
+            messages=history,
+            # skips the model's reasoning step (faster; may turn on later for hard questions)
+            think=False,
+            stream=True
+        )
+        # print each piece as it arrives and collect them into the full reply
+        reply = ""
+        print("Echo: ", end="", flush=True)
+        for chunk in stream:
+            piece = chunk["message"]["content"]
+            print(piece, end="", flush=True)
+            reply += piece
+        print()
+    except ConnectionError:
+        print("Echo: It seems I cannot connect to the model right now, sir. Please check your setup manually.")
+        history.pop() #removes the last user message so it doesn't get saved to memory if the model didn't respond
+        continue
     # save Echo's reply so it remembers its own side of the conversation
     history.append({"role": "assistant", "content": reply})
     save_history() # write the whole conversation to disk after each turn
