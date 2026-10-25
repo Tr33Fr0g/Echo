@@ -5,6 +5,19 @@ import time
 import json
 import os
 import sys
+
+#Colours
+USER = "\033[32m"
+CYAN = "\033[36m"
+RESET = "\033[0m"
+ERROR = "\033[31m"
+BANNER = """
+██████   █████   ██    ██    ████
+██       ██      ██    ██  ██    ██
+████     ██      ████████  ██    ██
+██       ██      ██    ██  ██    ██
+██████   █████   ██    ██    ████
+"""
 def save_history(): # write the whole conversation to disk
     with open("memory.json", "w") as f:
         json.dump(history, f, indent=2)
@@ -58,7 +71,7 @@ def get_greeting():
 
     time.sleep(random.uniform(0.5, 1)) # simulate a brief startup delay
 
-    print(f"Echo: {greeting}")
+    print(f"{CYAN}Echo: {greeting}")
 
     greeting_request = f"""It is {time_text}. Greet Bryan in one short sentence, in character.
         Let the time of day shape the greeting, but do not state the exact time or day 
@@ -72,10 +85,10 @@ def get_greeting():
             think=False,
         ) 
     except ConnectionError:
-        print("Echo: It seems I cannot connect to the model right now, sir. Please check your setup manually.")
+        print(f"{ERROR}Echo: It seems I cannot connect to the model right now, sir. Please check your setup manually.{RESET}")
         sys.exit()   
     generated = response["message"]["content"]
-    print(f"Echo: {generated}")
+    print(f"{CYAN}Echo: {generated}{RESET}")
     #remember the greeting so Echo can refer to it later if needed
     history.append({"role": "assistant", "content": generated})
     return response["message"]["content"]
@@ -95,14 +108,14 @@ def ask_echo(user_text):
             )
             # print each piece as it arrives and collect them into the full reply
             reply = ""
-            print("Echo: ", end="", flush=True)
+            print(f"{CYAN}Echo: ", end="", flush=True)
             for chunk in stream:
                 piece = chunk["message"]["content"]
                 print(piece, end="", flush=True)
                 reply += piece
-            print()
+            print(RESET)
         except ConnectionError:
-            print("Echo: It seems I cannot connect to the model right now, sir. Please check your setup manually.")
+            print(f"{ERROR}Echo: It seems I cannot connect to the model right now, sir. Please check your setup manually.{RESET}")
             history.pop() #removes the last user message so it doesn't get saved to memory if the model didn't respond
             return None
         # save Echo's reply so it remembers its own side of the conversation
@@ -116,7 +129,7 @@ def handle_command(user_text):
                 save_history() # write the whole conversation to disk before exiting
                 sys.exit()
         elif user_text.lower() == "/help":
-            print("""
+            print(f"""{CYAN}
 Commands: 
 /quit - exit the program 
 /reset - clear the conversation but keep the personality 
@@ -130,22 +143,20 @@ Commands:
             history.clear()
             history.append({"role": "system", "content": SYSTEM_PROMPT})
             save_history()
-            print("Echo: Memory successfully cleared, sir.")
+            print(f"{CYAN}Echo: Memory successfully cleared, sir.{RESET}")
         else:
-            print("Echo: Unknown command, sir. Type /help for a list of commands.")
+            print(f"{ERROR} Unknown command, sir. Type /help for a list of commands.{RESET}")
         return True
     else:
         return False
+print(f"{CYAN}{BANNER}{RESET}")
 get_greeting()
 # main chat loop: runs until the user types /quit
 while True:
     
-    user_text = input("You: ")
-    if handle_command(user_text):
+    user_text = input(f"{USER}You: {RESET}")
+    if handle_command(user_text):     # commands are checked first so they are never sent to the model
         continue
     ask_echo(user_text)
 
-    # commands are checked first so they are never sent to the model
-    
 
-    
