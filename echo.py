@@ -4,6 +4,7 @@ import ollama
 import time
 import json
 import os
+import sys
 def save_history(): # write the whole conversation to disk
     with open("memory.json", "w") as f:
         json.dump(history, f, indent=2)
@@ -42,22 +43,32 @@ else:
 
 # startup greeting
 now = datetime.now()
+
 time_text = now.strftime("%A, %I:%M %p")
+
 with open("startup_log.txt", "a") as log_file:
     log_file.write(now.strftime("%Y-%m-%d %H:%M") + " - Echo started\n")
+
 greeting = "Echo is loading..."
+
 time.sleep(random.uniform(0.5, 1)) # simulate a brief startup delay
+
 print(f"Echo: {greeting}")
+
 greeting_request = f"""It is {time_text}. Greet Bryan in one short sentence, in character.
     Let the time of day shape the greeting, but do not state the exact time or day 
     unless it is unusual, such as very late at night."""
-response = ollama.chat(
-    model="qwen3.5:9b",
-    messages=[{"role": "system", "content": SYSTEM_PROMPT}, 
-              {"role": "user", "content": greeting_request}
-    ],
-    think=False,
-)    
+try:
+    response = ollama.chat(
+        model="qwen3.5:9b",
+        messages=[{"role": "system", "content": SYSTEM_PROMPT}, 
+                {"role": "user", "content": greeting_request}
+        ],
+        think=False,
+    ) 
+except ConnectionError:
+    print("Echo: It seems I cannot connect to the model right now, sir. Please check your setup manually.")
+    sys.exit()   
 generated = response["message"]["content"]
 print(f"Echo: {generated}")
 
@@ -90,6 +101,7 @@ while True:
     history.append({"role": "user", "content": user_text})
 
     # send the whole conversation; stream=True returns the reply in pieces
+
     stream = ollama.chat(
         model="qwen3.5:9b",
         messages=history,
