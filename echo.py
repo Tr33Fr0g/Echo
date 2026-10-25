@@ -41,86 +41,111 @@ if os.path.exists("memory.json"):
 else:
     history = [{"role": "system", "content": SYSTEM_PROMPT}]
 
-# startup greeting
-now = datetime.now()
 
-time_text = now.strftime("%A, %I:%M %p")
 
-with open("startup_log.txt", "a") as log_file:
-    log_file.write(now.strftime("%Y-%m-%d %H:%M") + " - Echo started\n")
 
-greeting = "Echo is loading..."
 
-time.sleep(random.uniform(0.5, 1)) # simulate a brief startup delay
+def get_greeting():
+    # startup greeting
+    now = datetime.now()
 
-print(f"Echo: {greeting}")
+    time_text = now.strftime("%A, %I:%M %p")
 
-greeting_request = f"""It is {time_text}. Greet Bryan in one short sentence, in character.
-    Let the time of day shape the greeting, but do not state the exact time or day 
-    unless it is unusual, such as very late at night."""
-try:
-    response = ollama.chat(
-        model="qwen3.5:9b",
-        messages=[{"role": "system", "content": SYSTEM_PROMPT}, 
-                {"role": "user", "content": greeting_request}
-        ],
-        think=False,
-    ) 
-except ConnectionError:
-    print("Echo: It seems I cannot connect to the model right now, sir. Please check your setup manually.")
-    sys.exit()   
-generated = response["message"]["content"]
-print(f"Echo: {generated}")
+    with open("startup_log.txt", "a") as log_file:
+        log_file.write(now.strftime("%Y-%m-%d %H:%M") + " - Echo started\n")
 
-#remember the greeting so Echo can refer to it later if needed
-history.append({"role": "assistant", "content": generated})
+    greeting = "Echo is loading..."
 
-# main chat loop: runs until the user types /quit
-while True:
-    user_text = input("You: ")
+    time.sleep(random.uniform(0.5, 1)) # simulate a brief startup delay
 
-    # commands are checked first so they are never sent to the model
-    if user_text.lower() == "/quit":
-        save_history() # write the whole conversation to disk before exiting
-        break
-    elif user_text.lower() == "/help":
-        print("""Commands: \n
-/quit - exit the program \n
-/reset - clear the conversation but keep the personality \n
-/help - show this help message""")
-        continue
-    elif user_text.lower() == "/history":
-        print(f"History length: {len(history)} messages")
-        continue
-    elif user_text.lower() == "/reset":
-        history = [{"role": "system", "content": SYSTEM_PROMPT}]
-        print("Echo: Memory successfully cleared, sir.")
-        continue
+    print(f"Echo: {greeting}")
 
-    # save my message so Echo has context for later turns
-    history.append({"role": "user", "content": user_text})
-
-    # send the whole conversation; stream=True returns the reply in pieces
+    greeting_request = f"""It is {time_text}. Greet Bryan in one short sentence, in character.
+        Let the time of day shape the greeting, but do not state the exact time or day 
+        unless it is unusual, such as very late at night."""
     try:
-        stream = ollama.chat(
+        response = ollama.chat(
             model="qwen3.5:9b",
-            messages=history,
-            # skips the model's reasoning step (faster; may turn on later for hard questions)
+            messages=[{"role": "system", "content": SYSTEM_PROMPT}, 
+                    {"role": "user", "content": greeting_request}
+            ],
             think=False,
-            stream=True
-        )
-        # print each piece as it arrives and collect them into the full reply
-        reply = ""
-        print("Echo: ", end="", flush=True)
-        for chunk in stream:
-            piece = chunk["message"]["content"]
-            print(piece, end="", flush=True)
-            reply += piece
-        print()
+        ) 
     except ConnectionError:
         print("Echo: It seems I cannot connect to the model right now, sir. Please check your setup manually.")
-        history.pop() #removes the last user message so it doesn't get saved to memory if the model didn't respond
+        sys.exit()   
+    generated = response["message"]["content"]
+    print(f"Echo: {generated}")
+    #remember the greeting so Echo can refer to it later if needed
+    history.append({"role": "assistant", "content": generated})
+    return response["message"]["content"]
+
+def ask_echo(user_text):
+    # save my message so Echo has context for later turns
+        history.append({"role": "user", "content": user_text})
+    
+        # send the whole conversation; stream=True returns the reply in pieces
+        try:
+            stream = ollama.chat(
+                model="qwen3.5:9b",
+                messages=history,
+                # skips the model's reasoning step (faster; may turn on later for hard questions)
+                think=False,
+                stream=True
+            )
+            # print each piece as it arrives and collect them into the full reply
+            reply = ""
+            print("Echo: ", end="", flush=True)
+            for chunk in stream:
+                piece = chunk["message"]["content"]
+                print(piece, end="", flush=True)
+                reply += piece
+            print()
+        except ConnectionError:
+            print("Echo: It seems I cannot connect to the model right now, sir. Please check your setup manually.")
+            history.pop() #removes the last user message so it doesn't get saved to memory if the model didn't respond
+            return None
+        # save Echo's reply so it remembers its own side of the conversation
+        history.append({"role": "assistant", "content": reply})
+        save_history() # write the whole conversation to disk after each turn
+        return reply
+
+def handle_command(user_text):
+    if user_text.startswith("/"):
+        if user_text.lower() == "/quit":
+                save_history() # write the whole conversation to disk before exiting
+                sys.exit()
+        elif user_text.lower() == "/help":
+            print("""
+Commands: 
+/quit - exit the program 
+/reset - clear the conversation but keep the personality 
+/history - prints the length of the conversation
+/help - show this help message""")
+
+        elif user_text.lower() == "/history":
+            print(f"History length: {len(history)} messages")
+
+        elif user_text.lower() == "/reset":
+            history.clear()
+            history.append({"role": "system", "content": SYSTEM_PROMPT})
+            save_history()
+            print("Echo: Memory successfully cleared, sir.")
+        else:
+            print("Echo: Unknown command, sir. Type /help for a list of commands.")
+        return True
+    else:
+        return False
+get_greeting()
+# main chat loop: runs until the user types /quit
+while True:
+    
+    user_text = input("You: ")
+    if handle_command(user_text):
         continue
-    # save Echo's reply so it remembers its own side of the conversation
-    history.append({"role": "assistant", "content": reply})
-    save_history() # write the whole conversation to disk after each turn
+    ask_echo(user_text)
+
+    # commands are checked first so they are never sent to the model
+    
+
+    
